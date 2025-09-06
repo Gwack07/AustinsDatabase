@@ -10,21 +10,38 @@ class DatabaseManager:
 
         print(f"Connected to {dbName}")
 
+    def convertDataTypes(self, tableName, data): # converts input data into correct data type
+        # INTEGER -> int, REAL -> float, TEXT -> str
+        columns = self.query(f"PRAGMA table_info({tableName})")
+        for col in columns: # interate through columns and isolating name and types
+            colName = col[1]
+            colType = col[2].upper()
+            if colName in data and data[colName] is not None:
+                try: # changing data types
+                    if colType == "INTEGER":
+                        data[colName] = int(data[colName])
+                    elif colType == "REAL":
+                        data[colName] = float(data[colName])
+                    else:
+                        data[colName] = str(data[colName])
+                except ValueError:
+                    raise ValueError(f"{colName} must be of type {colType}")
+        return data
+
     def tableExists(self, tableName): # function to check if table of name already exists
         self.cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-            (tableName,)) # check if the table exists
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",(tableName,)) # check if the table exists
         row = self.cursor.fetchone() # fetch the above result
         if row is None: # returns if true or false
             return False
         else:
             return True
 
-    def foreignKeyExists(self, tableName, column, value):
+    def foreignKeyExists(self, tableName, column, value): # checking if foreeign key exists in specified table
         result = self.query(f"SELECT 1 FROM {tableName} WHERE {column}=?", (value,))
         return bool(result)
 
-    def createTable(self, tableName, columns, replace=False): # create a table in the
+    def createTable(self, tableName, columns, replace=False): # create a table in the format at the bottom
         if self.tableExists(tableName):
             if replace: # if it exists and replace is true then replace the table
                 self.cursor.execute(f"DROP TABLE IF EXISTS {tableName}")
@@ -44,18 +61,24 @@ class DatabaseManager:
         self.cursor.execute(f"CREATE TABLE {tableName} ({columnsDef})")
         print(f"Table '{tableName}' created")
 
-    def insert(self, tableName, data): # function to insert data
-        self.validateData(tableName, data)
+    def insert(self, tableName, data):
+        data = self.convertDataTypes(tableName, data)  # convert inputs first
+        self.validateData(tableName, data)  # then validate
         placeholders = ", ".join("?" * len(data))
         columns = ", ".join(data.keys())
         sql = f"INSERT INTO {tableName} ({columns}) VALUES ({placeholders})"
-
         self.cursor.execute(sql, tuple(data.values()))
         self.connection.commit()
         print(f"Inserted into {tableName}: {data}")
 
+    def isValidDate(self, value: str) -> bool: # check if input is of date format
+        try:
+            datetime.strptime(value, "%Y-%m-%d")
+            return True
+        except Exception:
+            return False
+
     def validateData(self, tableName, data):
-        # Validates data based on table-specific rules before insertion.
         if tableName == "Suppliers":
             if not data.get("Name") or not data.get("Contact") or not data.get("Address"):
                 raise ValueError("Supplier Name, Contact, and Address cannot be empty")
@@ -113,15 +136,16 @@ class DatabaseManager:
                 raise ValueError("RepairItemID does not exist")
             if "Price" in data and data["Price"] < 0:
                 raise ValueError("Price must be >= 0")
-            if "DateReceived" in data:
-                dr = datetime.strptime(data["DateReceived"], "%Y-%m-%d").date()
-                if dr > datetime.now().date():
-                    raise ValueError("DateReceived cannot be in the future")
-            if "DateCompleted" in data and data["DateCompleted"]:
-                dc = datetime.strptime(data["DateCompleted"], "%Y-%m-%d").date()
-                dr = datetime.strptime(data["DateReceived"], "%Y-%m-%d").date()
-                if dc < dr:
+
+            if data.get("DateReceived") and not self.isValidDate(data["DateReceived"]):
+                raise ValueError("DateReceived must be in YYYY-MM-DD format")
+            if data.get("DateCompleted") and not self.isValidDate(data["DateCompleted"]):
+                raise ValueError("DateCompleted must be in YYYY-MM-DD format")
+
+            if data.get("DateReceived") and data.get("DateCompleted"):
+                if data["DateCompleted"] < data["DateReceived"]:
                     raise ValueError("DateCompleted cannot be before DateReceived")
+
             if "Status" in data and data["Status"] not in ("Pending", "In Progress", "Completed", "Archived"):
                 raise ValueError("Status invalid")
 
@@ -146,10 +170,8 @@ class DatabaseManager:
                 raise ValueError("CustomerID does not exist")
             if "SaleAmount" in data and data["SaleAmount"] <= 0:
                 raise ValueError("SaleAmount must be > 0")
-            if "SaleDate" in data:
-                sd = datetime.strptime(data["SaleDate"], "%Y-%m-%d").date()
-                if sd > datetime.now().date():
-                    raise ValueError("SaleDate cannot be in the future")
+            if data.get("SaleDate") and not self.isValidDate(data["SaleDate"]):
+                raise ValueError("SaleDate must be in YYYY-MM-DD format")
 
         elif tableName == "SoldItems":
             if not self.foreignKeyExists("Products", "ProductID", data.get("ProductID")):
@@ -165,43 +187,40 @@ class DatabaseManager:
         self.cursor.execute(sql, params)
         return self.cursor.fetchall()
 
-    def getAllRecords(self, tableName):
-        """Return all records from a table."""
+    def getAllRecords(self, tableName): # return all records from a table
         try:
             return self.query(f"SELECT * FROM {tableName}")
-        except sqlite3.OperationalError as e:
+        except Exception as e:
             print(f"Error retrieving records from {tableName}: {e}")
             return []
 
-    def deleteRecord(self, tableName, condition):
-        """Delete a record with a WHERE condition, safely handle FK errors."""
+    def deleteRecord(self, tableName, condition): # delete records with a where condition
         try:
             self.cursor.execute(f"DELETE FROM {tableName} WHERE {condition}")
             self.connection.commit()
             print(f"Record(s) deleted from {tableName} where {condition}")
-        except sqlite3.IntegrityError as e:
+        except Exception as e:
             print(f"Cannot delete record due to foreign key constraints: {e}")
 
-    def updateRecord(self, tableName, updates, condition):
-        """Update records with a dictionary of columns."""
+    def updateRecord(self, tableName, updates, condition): # update record with dict of columns
         setClause = ", ".join([f"{col} = ?" for col in updates])
         try:
             self.cursor.execute(f"UPDATE {tableName} SET {setClause} WHERE {condition}", tuple(updates.values()))
             self.connection.commit()
             print(f"Record(s) updated in {tableName} where {condition}")
-        except sqlite3.IntegrityError as e:
+        except Exception as e:
             print(f"Cannot update record due to foreign key constraints: {e}")
 
     def close(self): # close connection to the database
         self.connection.close()
         print("Connection closed")
 
-# how to input data and create tables.
+# how to input data and create tables example
 """
 db = DatabaseManager("austinDB.db")
 
 # create students table
-db.create_table("students", {
+db.createTable("students", {
     "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
     "first_name": "TEXT NOT NULL",
     "last_name": "TEXT NOT NULL",
