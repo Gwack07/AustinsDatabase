@@ -25,7 +25,7 @@ def setupDatabase(): # austins database
         "StockQTY": "INTEGER NOT NULL CHECK(StockQTY >= 0)"
     }, replace=True)
 
-    # PartSuppliers (many-to-many)
+    # PartSuppliers
     db.createTable("PartSuppliers", {
         "PartID": "INTEGER NOT NULL",
         "SupplierID": "INTEGER NOT NULL",
@@ -88,7 +88,7 @@ def setupDatabase(): # austins database
         "FOREIGN KEY(RepairItemID)": "REFERENCES RepairItems(ItemID)"
     }, replace=True)
 
-    # RepairItemParts (many-to-many)
+    # RepairItemParts
 
     db.createTable("RepairItemParts", {
         "ItemID": "INTEGER NOT NULL",
@@ -99,7 +99,7 @@ def setupDatabase(): # austins database
         "FOREIGN KEY(PartID)": "REFERENCES Parts(PartID)"
     }, replace=True)
 
-    # Products (things for sale)
+    # Products
     db.createTable("Products", {
         "ProductID": "INTEGER PRIMARY KEY AUTOINCREMENT",
         "Category": "TEXT NOT NULL CHECK(Category IN ('Laptop','Desktop','Other'))",
@@ -118,7 +118,7 @@ def setupDatabase(): # austins database
         "FOREIGN KEY(CustomerID)": "REFERENCES Customers(CustomerID)"
     }, replace=True)
 
-    # SoldItems (many-to-many Sales ↔ Products)
+    # SoldItems
     db.createTable("SoldItems", {
         "SaleItemID": "INTEGER PRIMARY KEY AUTOINCREMENT",
         "ProductID": "INTEGER NOT NULL",
@@ -130,7 +130,7 @@ def setupDatabase(): # austins database
     }, replace=True)
     db.close()
 
-def populateDatabase():
+def populateDatabase(): # inserting data - must execute after database created, deletes whole database
     db = DatabaseManager("austinDB.db")
 
  # Suppliers
@@ -185,7 +185,7 @@ def populateDatabase():
             "PartID": m[0], "SupplierID": m[1], "PurchasePrice": m[2]
         })
 
-    # Customers (10)
+    # Customers
     customers = [
         ("Alice", "Smith", "alice@example.com", "0400123456", "123 Main St, Perth"),
         ("Bob", "Johnson", "bob@example.com", "0400654321", "456 High St, Perth"),
@@ -203,7 +203,7 @@ def populateDatabase():
             "FirstName": c[0], "LastName": c[1], "Email": c[2], "Phone": c[3], "Address": c[4]
         })
 
-    # RepairItems (10)
+    # RepairItems
     repair_items = [
         ("Computer", 1, "Gaming PC", "Custom build"),
         ("Car", 2, "Toyota Corolla", "2008 sedan"),
@@ -221,7 +221,7 @@ def populateDatabase():
             "RepairType": r[0], "CustomerID": r[1], "Name": r[2], "Description": r[3]
         })
 
-    # Products (10)
+    # Products
     products = [
         ("Desktop", 3, "Refurbished Gaming PC", "Ryzen 5 + GTX 1660 build", 750.00),
         ("Laptop", 5, "Refurbished Dell Laptop", "i5 + 8GB RAM", 450.00),
@@ -239,7 +239,7 @@ def populateDatabase():
             "Category": p[0], "Quantity": p[1], "Name": p[2], "Description": p[3], "Price": p[4]
         })
 
-    # Sales (10)
+    # Sales
     sales = [
         ("2025-08-01", 750.00, 1),
         ("2025-08-02", 450.00, 2),
@@ -255,7 +255,7 @@ def populateDatabase():
     for s in sales:
         db.insert("Sales", {"SaleDate": s[0], "SaleAmount": s[1], "CustomerID": s[2]})
 
-    # SoldItems (10)
+    # SoldItems
     soldItems = [
         (1, 1, 1, 750.00),
         (2, 2, 1, 450.00),
@@ -286,7 +286,7 @@ def populateDatabase():
             "ItemID": item_id, "Brand": d[0], "RAM": d[1], "Storage": d[2], "CPU": d[3]
         })
 
-    # CarDetails (for 5 cars)
+    # CarDetails
     carDetails = [
         ("Toyota", "Corolla", 2008, 1.8, "White, automatic"),
         ("Mazda", "3", 2012, 2.0, "Hatchback"),
@@ -303,7 +303,7 @@ def populateDatabase():
         })
 
 
-    # RepairJobs (10)
+    # RepairJobs
     repairJobs = [
         ("Hardware Repair", "2025-08-01", "2025-08-05", "Completed", 150.00, 1),
         ("Engine Overhaul", "2025-08-10", None, "In Progress", 800.00, 2),
@@ -326,18 +326,18 @@ def populateDatabase():
             "RepairItemID": r[5]
         })
 
-    # RepairItemParts (10)
+    # RepairItemParts
     repairItemParts = [
-        (1, 1, 1),  # Gaming PC used 1x Intel i5 CPU
-        (1, 2, 1),  # Gaming PC used 1x GTX 1660
-        (3, 4, 1),  # Office Laptop used 1x RAM stick
-        (5, 7, 1),  # Workstation used 1x PSU
-        (7, 9, 1),  # Server PC used 1x Intel i7
-        (9, 5, 1),  # MacBook repair used 1x SSD
-        (2, 6, 2),  # Toyota repair used 2x HDDs (for infotainment data backup maybe)
-        (4, 8, 1),  # Mazda repair used 1x Case part
-        (6, 10, 1), # Honda repair used 1x RTX 3060 (pretend GPU for car display system)
-        (10, 3, 1)  # Commodore repair used 1x Ryzen CPU (improvised swap)
+        (1, 1, 1),
+        (1, 2, 1),
+        (3, 4, 1),
+        (5, 7, 1),
+        (7, 9, 1),
+        (9, 5, 1),
+        (2, 6, 2),
+        (4, 8, 1),
+        (6, 10, 1),
+        (10, 3, 1)
     ]
     for rip in repairItemParts:
         db.insert("RepairItemParts", {

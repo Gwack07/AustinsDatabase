@@ -1,5 +1,3 @@
-from typing import Required
-
 from databaseManager import DatabaseManager
 
 def displayRecords(db, tableName): #displays all columns in a table with headers
@@ -139,7 +137,7 @@ def updateRecord(db): # function to update record of specified table
         if col[5]:  # skip primary key
             continue
         required = col[3] == 1
-        if Required:
+        if required:
             prompt = f"New value for {name} (Required): "
         else:
             prompt = f"New value for {name} (Optional): "
@@ -157,7 +155,7 @@ def updateRecord(db): # function to update record of specified table
         except Exception as e:
             print(f"Error updating: {e}")
 
-def deleteRecord(db): # function to delete records
+def deleteRecord(db): # function to delete records with parameters
     displayTables(db)
     tableChoice = chooseTable()
     if tableChoice is None:
@@ -171,14 +169,14 @@ def deleteRecord(db): # function to delete records
 
     db.deleteRecord(tableName, condition)
 
-def customQuery(db):
+def customQuery(db): # function to execute custom query
     query = input("Enter your SQL query ('/' to cancel): ").strip()
     if query == "/":
         print("Cancelled. Returning to menu.")
         return
     displayQueryResults(db, query)
 
-def miscQueries(db):
+def miscQueries(db): # function containing possible queries that can be enumerated - add more in future
     queries = [
         ("List all suppliers sorted alphabetically by name",
          "SELECT * FROM Suppliers ORDER BY Name ASC"),
@@ -223,31 +221,43 @@ def miscQueries(db):
     ]
 
     print("\n--- Misc Queries ---")
-    for i, q in enumerate(queries, 1):
+    for i, q in enumerate(queries, 1): # printing the list of queries
         print(f"{i}. {q[0]}")
 
     choice = input("Choose query number ('/' to cancel): ").strip()
     if choice == "/":
         print("Cancelled. Returning to menu.")
         return
-    if not choice.isdigit() or not (1 <= int(choice) <= len(queries)):
+    if not choice.isdigit() or not (1 <= int(choice) <= len(queries)): # checking choice is valid
         print("Invalid choice.")
         return
 
     displayQueryResults(db, queries[int(choice)-1][1])
 
-def displayQueryResults(db, query):
+def displayQueryResults(db, query): # table to display the results from a query - custom or predefined
     try:
-        db.cursor.execute(query)
-        rows = db.cursor.fetchall()
-        if rows:
-            columns = [desc[0] for desc in db.cursor.description]
+        db.cursor.execute(query) # execute query
+        rows = db.cursor.fetchall() # return the result
+        if rows: # print results
+            columns = []
+            for desc in db.cursor.description:
+                columns.append(desc[0])
             print("\n" + " | ".join(columns))
             print("-"*50)
             for r in rows:
-                print(" | ".join([str(i) if i is not None else "" for i in r]))
+                row_values = []
+                for i in r:
+                    if i is not None:
+                        row_values.append(str(i))
+                    else:  # if its none, replace with ""
+                        row_values.append("")
+
+                # join everything in the row with | and print
+                print(" | ".join(row_values))
+
         else:
             print("No results.")
+
     except Exception as e:
         print(f"Error: {e}")
 
@@ -262,9 +272,9 @@ def displayTables(db): # fetch and display all tables in the database
     for i, t in enumerate(tableList, 1): # Showing list of tables
         print(f"{i}. {t}")
 
-def main():
+def main(): # mainline
     db = DatabaseManager("austinDB.db")
-    while True:
+    while True: # constantly display choices
         print("\n--- Austin's Database Console ('/' to cancel) ---")
         print("1. View Records")
         print("2. Add Record")
@@ -278,7 +288,7 @@ def main():
         if choice == "/":
             continue
 
-        if choice == "1":
+        if choice == "1": # logic to process choices and execute various functions
             displayTables(db)
             tableChoice = chooseTable()
             if tableChoice is not None:
@@ -299,5 +309,4 @@ def main():
         else:
             print("Invalid option. Try again.")
 
-if __name__ == "__main__":
-    main()
+main()

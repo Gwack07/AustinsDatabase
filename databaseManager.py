@@ -49,12 +49,12 @@ class DatabaseManager:
             else:
                 print(f"Table '{tableName}' already exists")
                 return
-        # Turns parameters into sql-able format
+        # turns parameters into sql-able format
         columnsList = []
         for col, dtype in columns.items():
             pair = f"{col} {dtype}"
             columnsList.append(pair)
-        # Join them into one string with commas
+        # join them into one string with commas
         columnsDef = ", ".join(columnsList)
 
         # execute creating the table
@@ -222,18 +222,18 @@ db = DatabaseManager("austinDB.db")
 # create students table
 db.createTable("students", {
     "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
-    "first_name": "TEXT NOT NULL",
-    "last_name": "TEXT NOT NULL",
+    "firstName": "TEXT NOT NULL",
+    "lastName": "TEXT NOT NULL",
     "email": "TEXT",
-    "enrolled_date": "TEXT"
+    "enrolledDate": "TEXT"
 }, replace=True)
 
 # insert data
 db.insert("students", {
-    "first_name": "Alice",
-    "last_name": "Smith",
+    "firstName": "Alice",
+    "lastName": "Smith",
     "email": "alice@example.com",
-    "enrolled_date": "2025-08-20"
+    "enrolledNate": "2025-08-20"
 })
 
 # query data
