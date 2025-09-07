@@ -1,42 +1,64 @@
+from typing import Required
+
 from databaseManager import DatabaseManager
 
 def displayRecords(db, tableName): #displays all columns in a table with headers
     try:
         rows = db.query(f"SELECT * FROM {tableName}")
         if rows:
-            columns = [desc[0] for desc in db.cursor.description]
-            print("\n" + " | ".join(columns))
+            columns = []
+            for desc in db.cursor.description:
+                columns.append(desc[0])
+            print("\n" + " | ".join(columns)) # header
             print("-" * 50)
-            for r in rows:
-                print(" | ".join([str(i) if i is not None else "" for i in r]))
+
+            for r in rows: # print out each record
+
+                rowValues = []
+                for value in r:
+                    if value is None:
+                        rowValues.append("")  # replace None with empty string
+                    else:
+                        rowValues.append(str(value))  # make sure it’s a string
+
+                print(" | ".join(rowValues))
         else:
             print(f"No records in {tableName}.")
     except Exception as e:
         print(f"Error: {e}")
 
-def getInputForTable(db, tableName):
-    """Get input for a table from user, showing required/optional fields."""
-    columns = db.query(f"PRAGMA table_info({tableName})")
+def getInputForTable(db, tableName): # getting input for new/updated records
+    columns = db.query(f"PRAGMA table_info({tableName})")  # sql function to return column info
+    '''cid, name, type, notnull, dflt_value, pk''' # return result syntax
+
     data = {}
     for col in columns:
         name = col[1]
         required = col[3] == 1  # NOT NULL
-        if col[5]:  # primary key autoincrement
+
+        if col[5]:  # primary key autoincrement - no user input for pk
             continue
-        prompt = f"{name} ({'Required' if required else 'Optional'}): "
-        value = input(prompt).strip()
-        if value == "/":
+
+        if required: # required/ not
+            prompt = f'{name} (Required): '
+        else:
+            prompt = f'{name} (Optional): '
+
+        value = input(prompt).strip() #removing unnesscary
+
+        if value == "/": #cancelling function
             print("Cancelled. Returning to menu.")
             return None
+
         if required and not value:
-            print(f"{name} is required!")
+            print(f"{name} is required")
             return None
+
         if value:
             data[name] = value
     return data
 
-def chooseTable():
-    """Safely prompt user to choose a table. Returns index or None if cancelled."""
+def chooseTable(): # promting user to enter table - returns tablenumber of choice
     while True:
         choice = input("Choose table number ('/' to cancel): ").strip()
         if choice == "/":
@@ -50,14 +72,14 @@ def chooseTable():
         else:
             print(f"Please enter a number between 1 and {len(tableList)}.")
 
-def addRecord(db):
+def addRecord(db): # function to add a table
     displayTables(db)
     tableChoice = chooseTable()
     if tableChoice is None:
         return
-    tableName = tableList[tableChoice]
+    tableName = tableList[tableChoice] # tableList global var
 
-    # Special case for CarDetails
+    # Special case for cardetails - has user definef pk
     if tableName.lower() == "cardetails":
         try:
             itemId = int(input("Enter the ItemID from RepairItems (Required): "))
@@ -74,7 +96,7 @@ def addRecord(db):
             print(f"Error inserting: {e}")
         return
 
-    # Special case for ComputerDetails
+    # Special case for computerdetails like above
     if tableName.lower() == "computerdetails":
         try:
             itemId = int(input("Enter the ItemID from RepairItems (Required): "))
@@ -90,7 +112,7 @@ def addRecord(db):
             print(f"Error inserting: {e}")
         return
 
-    # Generic case for all other tables
+    # generic case for all other tables
     data = getInputForTable(db, tableName)
     if data:
         try:
@@ -98,14 +120,14 @@ def addRecord(db):
         except Exception as e:
             print(f"Error inserting: {e}")
 
-def updateRecord(db):
+def updateRecord(db): # function to update record of specified table
     displayTables(db)
     tableChoice = chooseTable()
     if tableChoice is None:
         return
     tableName = tableList[tableChoice]
 
-    condition = input("Enter condition for record to update (e.g., ItemID=1): ").strip()
+    condition = input("Enter condition for record to update (e.g., ItemID=1): ").strip() # condition like used to find record
     if condition == "/":
         print("Cancelled. Returning to menu.")
         return
@@ -117,7 +139,11 @@ def updateRecord(db):
         if col[5]:  # skip primary key
             continue
         required = col[3] == 1
-        prompt = f"New value for {name} ({'Required' if required else 'Optional'}): "
+        if Required:
+            prompt = f"New value for {name} (Required): "
+        else:
+            prompt = f"New value for {name} (Optional): "
+
         value = input(prompt).strip()
         if value == "/":
             print("Cancelled. Returning to menu.")
@@ -131,7 +157,7 @@ def updateRecord(db):
         except Exception as e:
             print(f"Error updating: {e}")
 
-def deleteRecord(db):
+def deleteRecord(db): # function to delete records
     displayTables(db)
     tableChoice = chooseTable()
     if tableChoice is None:
@@ -225,13 +251,15 @@ def displayQueryResults(db, query):
     except Exception as e:
         print(f"Error: {e}")
 
-def displayTables(db):
+def displayTables(db): # fetch and display all tables in the database
     global tableList
-    tableList = ["Suppliers", "Parts", "PartSuppliers", "Customers", "RepairItems",
-                 "CarDetails", "ComputerDetails", "RepairJobs", "RepairItemParts",
-                 "Products", "Sales", "SoldItems"]
+    rows = db.query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;") # function to return tables
+    tableList = []
+    for row in rows:
+        tableList.append(row[0])
+
     print("\n--- Tables ---")
-    for i, t in enumerate(tableList, 1):
+    for i, t in enumerate(tableList, 1): # Showing list of tables
         print(f"{i}. {t}")
 
 def main():
