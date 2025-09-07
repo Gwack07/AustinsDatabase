@@ -1,7 +1,6 @@
 from databaseManager import DatabaseManager
 
-def displayRecords(db, tableName):
-    """Display all records in a table with column headers."""
+def displayRecords(db, tableName): #displays all columns in a table with headers
     try:
         rows = db.query(f"SELECT * FROM {tableName}")
         if rows:
@@ -21,14 +20,14 @@ def getInputForTable(db, tableName):
     data = {}
     for col in columns:
         name = col[1]
-        required = col[3] == 1  # not null
+        required = col[3] == 1  # NOT NULL
         if col[5]:  # primary key autoincrement
             continue
         prompt = f"{name} ({'Required' if required else 'Optional'}): "
-        value = input(prompt)
-        if value.strip() == "/":
+        value = input(prompt).strip()
+        if value == "/":
             print("Cancelled. Returning to menu.")
-            return
+            return None
         if required and not value:
             print(f"{name} is required!")
             return None
@@ -36,13 +35,27 @@ def getInputForTable(db, tableName):
             data[name] = value
     return data
 
+def chooseTable():
+    """Safely prompt user to choose a table. Returns index or None if cancelled."""
+    while True:
+        choice = input("Choose table number ('/' to cancel): ").strip()
+        if choice == "/":
+            return None
+        if not choice.isdigit():
+            print("Please enter a valid number.")
+            continue
+        index = int(choice)
+        if 1 <= index <= len(tableList):
+            return index - 1
+        else:
+            print(f"Please enter a number between 1 and {len(tableList)}.")
+
 def addRecord(db):
     displayTables(db)
-    choice = input("Choose table number to add record: ")
-    if choice.strip() == "/":
-        print("Cancelled. Returning to menu.")
+    tableChoice = chooseTable()
+    if tableChoice is None:
         return
-    tableName = tableList[int(choice)-1]
+    tableName = tableList[tableChoice]
 
     # Special case for CarDetails
     if tableName.lower() == "cardetails":
@@ -59,10 +72,10 @@ def addRecord(db):
             db.insert("CarDetails", data)
         except Exception as e:
             print(f"Error inserting: {e}")
-        return  # Exit function after handling this special case
+        return
 
     # Special case for ComputerDetails
-    elif tableName.lower() == "computerdetails":
+    if tableName.lower() == "computerdetails":
         try:
             itemId = int(input("Enter the ItemID from RepairItems (Required): "))
             data = {
@@ -85,15 +98,18 @@ def addRecord(db):
         except Exception as e:
             print(f"Error inserting: {e}")
 
-
 def updateRecord(db):
     displayTables(db)
-    choice = input("Choose table number to update record: ")
-    if choice.strip() == "/":
+    tableChoice = chooseTable()
+    if tableChoice is None:
+        return
+    tableName = tableList[tableChoice]
+
+    condition = input("Enter condition for record to update (e.g., ItemID=1): ").strip()
+    if condition == "/":
         print("Cancelled. Returning to menu.")
         return
-    tableName = tableList[int(choice)-1]
-    condition = input("Enter condition for record to update (e.g., ItemID=1): ")
+
     columns = db.query(f"PRAGMA table_info({tableName})")
     updates = {}
     for col in columns:
@@ -102,9 +118,13 @@ def updateRecord(db):
             continue
         required = col[3] == 1
         prompt = f"New value for {name} ({'Required' if required else 'Optional'}): "
-        value = input(prompt)
+        value = input(prompt).strip()
+        if value == "/":
+            print("Cancelled. Returning to menu.")
+            return
         if value:
             updates[name] = value
+
     if updates:
         try:
             db.updateRecord(tableName, updates, condition)
@@ -113,16 +133,23 @@ def updateRecord(db):
 
 def deleteRecord(db):
     displayTables(db)
-    choice = input("Choose table number to delete record: ")
-    if choice.strip() == "/":
+    tableChoice = chooseTable()
+    if tableChoice is None:
+        return
+    tableName = tableList[tableChoice]
+
+    condition = input("Enter condition for record to delete (e.g., ItemID=1): ").strip()
+    if condition == "/":
         print("Cancelled. Returning to menu.")
         return
-    tableName = tableList[int(choice)-1]
-    condition = input("Enter condition for record to delete (e.g., ItemID=1): ")
+
     db.deleteRecord(tableName, condition)
 
 def customQuery(db):
-    query = input("Enter your SQL query: ")
+    query = input("Enter your SQL query ('/' to cancel): ").strip()
+    if query == "/":
+        print("Cancelled. Returning to menu.")
+        return
     displayQueryResults(db, query)
 
 def miscQueries(db):
@@ -136,7 +163,7 @@ def miscQueries(db):
         ("Get all repair jobs that are not complete",
          "SELECT * FROM RepairJobs WHERE Status != 'Completed'"),
         ("List all computer repairs in the last week",
-         "SELECT * FROM RepairItems r JOIN RepairJobs j ON r.ItemID=j.RepairItemID WHERE r.RepairType='Com1puter' AND j.DateReceived >= date('now','-7 days')"),
+         "SELECT * FROM RepairItems r JOIN RepairJobs j ON r.ItemID=j.RepairItemID WHERE r.RepairType='Computer' AND j.DateReceived >= date('now','-7 days')"),
         ("List all parts with their supplier name",
          "SELECT p.Name AS PartName, s.Name AS SupplierName FROM Parts p JOIN PartSuppliers ps ON p.PartID=ps.PartID JOIN Suppliers s ON ps.SupplierID=s.SupplierID"),
         ("Get all repair jobs with customer name and repair item description",
@@ -173,11 +200,15 @@ def miscQueries(db):
     for i, q in enumerate(queries, 1):
         print(f"{i}. {q[0]}")
 
-    choice = int(input("Choose query number: ")) - 1
-    if 0 <= choice < len(queries):
-        displayQueryResults(db, queries[choice][1])
-    else:
+    choice = input("Choose query number ('/' to cancel): ").strip()
+    if choice == "/":
+        print("Cancelled. Returning to menu.")
+        return
+    if not choice.isdigit() or not (1 <= int(choice) <= len(queries)):
         print("Invalid choice.")
+        return
+
+    displayQueryResults(db, queries[int(choice)-1][1])
 
 def displayQueryResults(db, query):
     try:
@@ -215,12 +246,15 @@ def main():
         print("6. Miscellaneous Queries")
         print("7. Exit")
 
-        choice = input("Select an option: ")
+        choice = input("Select an option: ").strip()
+        if choice == "/":
+            continue
 
         if choice == "1":
             displayTables(db)
-            tableChoice = int(input("Choose table number: ")) - 1
-            displayRecords(db, tableList[tableChoice])
+            tableChoice = chooseTable()
+            if tableChoice is not None:
+                displayRecords(db, tableList[tableChoice])
         elif choice == "2":
             addRecord(db)
         elif choice == "3":
